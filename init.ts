@@ -1,7 +1,5 @@
 #! /usr/bin/env node
 
-import Path from "path";
-
 import { Registry } from "@the-stations-project/sdk";
 
 async function main() {
@@ -27,7 +25,7 @@ async function main() {
 }
 
 function get_full_path(path: string): string {
-	return Path.join("bridge", path);
+	return Registry.join_paths("bridge", path);
 }
 
 main();

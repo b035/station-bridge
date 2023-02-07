@@ -99,6 +99,10 @@ export const Registry = {
 
 	get_panic_message: (msg: string) => `Registry: ${msg}`,
 
+	join_paths(...args: string[]): string {
+		return args.join("/");
+	},
+
 	async mkdir(path: string): Promise<RegistryResult<undefined>> {
 		const full_path = Registry.get_full_path(path);
 

@@ -5,7 +5,7 @@
   "main": "index.js",
   "bin": {
     "bridge": "index.js",
-	"bridge-init": "init.js"
+    "bridge-init": "init.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -26,7 +26,7 @@
   },
   "homepage": "https://github.com/b035/station-bridge#readme",
   "dependencies": {
-    "@the-stations-project/sdk": "^0.1.8-beta",
+    "@the-stations-project/sdk": "^0.1.9-beta",
     "@types/node": "^18.13.0"
   }
 }
