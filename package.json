@@ -4,7 +4,8 @@
   "description": "Serves frontend and handles requests",
   "main": "index.js",
   "bin": {
-	  "bridge": "index.js"
+    "bridge": "index.js",
+	"bridge-init": "init.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -23,5 +24,9 @@
   "bugs": {
     "url": "https://github.com/b035/station-bridge/issues"
   },
-  "homepage": "https://github.com/b035/station-bridge#readme"
+  "homepage": "https://github.com/b035/station-bridge#readme",
+  "dependencies": {
+    "@the-stations-project/sdk": "^0.1.8-beta",
+    "@types/node": "^18.13.0"
+  }
 }
