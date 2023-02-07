@@ -21,6 +21,14 @@ export async function check(unum: string, cmd: string): Promise<PermissionCheckR
 	const result = new PermissionCheckResult(ExitCodes.Err, PermissionOptions.Denied);
 	result.unum = unum;
 	result.command = cmd;
+	
+	function log_result(permission: PermissionOptions) {
+		log("ACTIVITY", `Checked permission for "${unum}" with "${cmd}": ${permission}.`);
+
+		result.value = permission;
+		return result;
+	}
+
 
 	const action_permissions_result = (await get_action_permissions(cmd)).log_error();
 	if (action_permissions_result.failed) return result;
@@ -31,19 +39,16 @@ export async function check(unum: string, cmd: string): Promise<PermissionCheckR
 
 	switch (action_permissions) {
 		case PrimitiveActionPermissions.None: {
-			result.value = PermissionOptions.Denied;
-			return result;
+			return log_result(PermissionOptions.Denied);
 		}
 		case PrimitiveActionPermissions.Full: { //everyone can perform this action
-			result.value = PermissionOptions.Full;
-			return result;
+			return log_result(PermissionOptions.Full);
 		}
 		default: { //check if user can perform action
 			const user_permission_result = (await get_user_permissions(unum, action_permissions)).log_error();
 			if (user_permission_result.failed) return result;
-			
-			result.value = user_permission_result.value!
-			return result;
+
+			return log_result(user_permission_result.value!);
 		}
 	}
 }
@@ -55,7 +60,7 @@ interface DetailedActionPermissions {
 }
 enum PrimitiveActionPermissions {
 	None = 0,
-	Full = 1,
+		Full = 1,
 }
 type ActionPermissions = DetailedActionPermissions|PrimitiveActionPermissions;
 
@@ -74,11 +79,10 @@ async function get_action_permissions(cmd: string): Promise<ActionPermissionsRes
 
 	//process command to get filename
 	const processed_cmd = cmd.replace(/ /g, "__");
-	const regex = new RegExp(`^${processed_cmd}`);
 
 	const matching_file = ls_result.value!
 		//get matching files
-		.filter(x => regex.test(x))
+		.filter(x => new RegExp(`^${x}`).test(processed_cmd))
 		//get most precisely matching file
 		.reverse()[0];
 
@@ -97,7 +101,7 @@ async function get_action_permissions(cmd: string): Promise<ActionPermissionsRes
 	result.code = ExitCodes.Ok;
 
 	//if everyone has permission
-	const [ allow_section, block_section ] = read_result.value!.split("\n---\n");	
+	const [ allow_section, block_section ] = read_result.value!.split("\n---");
 	if (allow_section == "all") {
 		result.value = PrimitiveActionPermissions.Full;
 		return result;
@@ -105,8 +109,8 @@ async function get_action_permissions(cmd: string): Promise<ActionPermissionsRes
 
 	//parse permission file
 	const allow_conditions = allow_section
-		.split("\n")
-		.map(x => x.split(" "));
+	.split("\n")
+	.map(x => x.split(" "));
 	const blocked_groups = block_section.split("\n");
 
 	result.value = {
@@ -119,14 +123,14 @@ async function get_action_permissions(cmd: string): Promise<ActionPermissionsRes
 // User permissions
 class UserPermissionsResult extends Result<ExitCodes, PermissionOptions> {
 	unum:  string = "";
-	
+
 	panic_message = () => `Bridge: failed to check user permissions for user "${this.unum}".`;	
 }
 
 async function get_user_permissions(unum: string, action_permissions: DetailedActionPermissions): Promise<UserPermissionsResult> {
 	const result = new UserPermissionsResult(ExitCodes.Err, PermissionOptions.Denied);
 	result.unum = unum;
-	
+
 	//get groups the user is in
 	const group_path = Registry.join_paths(BRIDGE_DIR, "groups/by-user", unum);
 	const user_group_result = (await Registry.ls(group_path)).log_error();
