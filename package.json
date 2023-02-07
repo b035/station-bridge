@@ -1,0 +1,27 @@
+{
+  "name": "@the-stations-project/bridge",
+  "version": "0.0.1-alpha",
+  "description": "Serves frontend and handles requests",
+  "main": "index.js",
+  "bin": {
+	  "bridge": "index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/b035/station-bridge.git"
+  },
+  "keywords": [
+    "station",
+    "stations",
+    "project"
+  ],
+  "author": "b035",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/b035/station-bridge/issues"
+  },
+  "homepage": "https://github.com/b035/station-bridge#readme"
+}
