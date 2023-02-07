@@ -7,6 +7,7 @@ async function main() {
 
 	for (let path of [
 		"config/redirects",
+		"groups/by-user",
 		"permissions",
 		"actions",
 	]) {

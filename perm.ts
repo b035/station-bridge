@@ -1,6 +1,6 @@
 import { log, Registry, Result, ExitCodes } from "@the-stations-project/sdk";
 
-import { BRIDGE_DIR, USER_DIR } from "./index.js";
+import { BRIDGE_DIR } from "./index.js";
 
 const PERM_DIR = Registry.join_paths(BRIDGE_DIR, "permissions");
 
@@ -128,8 +128,7 @@ async function get_user_permissions(unum: string, action_permissions: DetailedAc
 	result.unum = unum;
 	
 	//get groups the user is in
-	const user_path = Registry.join_paths(USER_DIR, unum);
-	const group_path = Registry.join_paths(user_path, "groups");
+	const group_path = Registry.join_paths(BRIDGE_DIR, "groups/by-user", unum);
 	const user_group_result = (await Registry.ls(group_path)).log_error();
 	if (user_group_result.failed) return result;
 	const user_groups = user_group_result.value!;
