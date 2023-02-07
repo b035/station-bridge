@@ -1,6 +1,6 @@
 {
   "name": "@the-stations-project/bridge",
-  "version": "0.0.1-alpha",
+  "version": "0.0.2-beta",
   "description": "Serves frontend and handles requests",
   "main": "index.js",
   "bin": {
