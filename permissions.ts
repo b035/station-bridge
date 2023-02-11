@@ -4,14 +4,18 @@ import { BRIDGE_DIR } from "./index.js";
 
 const PERM_DIR = Registry.join_paths(BRIDGE_DIR, "permissions");
 
-export enum PrimitivePermissionOptions {
-	Denied = 0,
+export interface DetailedPermissionValues {
+	allow_conditions: string[][];
+	blocked_groups: string[];
+}
+export enum PrimitivePermissionValues {
+	None = 0,
 	Partial = 1,
 	Full = 2,
 }
-export type PermissionOptions = PrimitivePermissionOptions | DetailedActionPermissions;
+export type PermissionValues = PrimitivePermissionValues | DetailedPermissionValues;
 
-export class PermissionCheckResult extends Result<ExitCodes, PermissionOptions> {
+export class PermissionCheckResult extends Result<ExitCodes, PermissionValues> {
 	unum: string = "";
 	command: string = "";
 
@@ -19,17 +23,16 @@ export class PermissionCheckResult extends Result<ExitCodes, PermissionOptions> 
 }
 
 export async function check(unum: string, cmd: string): Promise<PermissionCheckResult> {
-	const result = new PermissionCheckResult(ExitCodes.Err, PrimitivePermissionOptions.Denied);
+	const result = new PermissionCheckResult(ExitCodes.Err, PrimitivePermissionValues.None);
 	result.unum = unum;
 	result.command = cmd;
 	
-	function log_result(permission: PermissionOptions) {
+	function log_result(permission: PermissionValues) {
 		log("ACTIVITY", `Checked permission for "${unum}" with "${cmd}": ${permission}.`);
 
 		result.value = permission;
 		return result;
 	}
-
 
 	const action_permissions_result = (await get_action_permissions(cmd)).log_error();
 	if (action_permissions_result.failed) return result;
@@ -39,44 +42,34 @@ export async function check(unum: string, cmd: string): Promise<PermissionCheckR
 	result.code = ExitCodes.Ok;
 
 	switch (action_permissions) {
-		case PrimitiveActionPermissions.None: {
-			return log_result(PrimitivePermissionOptions.Denied);
+		case PrimitivePermissionValues.None: {
+			return log_result(PrimitivePermissionValues.None);
 		}
-		case PrimitiveActionPermissions.Full: { //everyone can perform this action
-			return log_result(PrimitivePermissionOptions.Full);
+		case PrimitivePermissionValues.Full: { //everyone can perform this action
+			return log_result(PrimitivePermissionValues.Full);
 		}
 		default: { //check if user can perform action
 			const user_permission_result = (await get_user_permissions(unum, action_permissions)).log_error();
-			if (user_permission_result.failed) return log_result(PrimitivePermissionOptions.Denied);
+			if (user_permission_result.failed) return log_result(PrimitivePermissionValues.None);
 
 			//user can perform action
-			if (user_permission_result.value! == PrimitivePermissionOptions.Partial) {
+			if (user_permission_result.value! == PrimitivePermissionValues.Partial) {
 				return log_result(action_permissions);
 			}
 
-			return log_result(PrimitivePermissionOptions.Denied);
+			return log_result(PrimitivePermissionValues.None);
 		}
 	}
 }
 
 // Action permissions
-export interface DetailedActionPermissions {
-	allow_conditions: string[][];
-	blocked_groups: string[];
-}
-export enum PrimitiveActionPermissions {
-	None = 0,
-	Full = 1,
-}
-export type ActionPermissions = DetailedActionPermissions | PrimitiveActionPermissions;
-
-export class ActionPermissionsResult extends Result<ExitCodes, ActionPermissions> {
+export class ActionPermissionsResult extends Result<ExitCodes, DetailedPermissionValues|PrimitivePermissionValues.Full|PrimitivePermissionValues.None> {
 	command: string = "";
 	panic_message = () => `Bridge: failed to check permissions for command "${this.command}".`
 }
 
 export async function get_action_permissions(cmd: string): Promise<ActionPermissionsResult> {
-	const result = new ActionPermissionsResult(ExitCodes.Err, PrimitiveActionPermissions.None);
+	const result = new ActionPermissionsResult(ExitCodes.Err, PrimitivePermissionValues.None);
 	result.command = cmd;
 
 	//get all permission files
@@ -109,7 +102,7 @@ export async function get_action_permissions(cmd: string): Promise<ActionPermiss
 	//if everyone has permission
 	const [ allow_section, block_section ] = read_result.value!.split("\n---");
 	if (allow_section == "all") {
-		result.value = PrimitiveActionPermissions.Full;
+		result.value = PrimitivePermissionValues.Full;
 		return result;
 	}
 
@@ -127,14 +120,14 @@ export async function get_action_permissions(cmd: string): Promise<ActionPermiss
 }
 
 // User permissions
-export class UserPermissionsResult extends Result<ExitCodes, PermissionOptions> {
+export class UserPermissionsResult extends Result<ExitCodes, PermissionValues> {
 	unum:  string = "";
 
 	panic_message = () => `Bridge: failed to check user permissions for user "${this.unum}".`;	
 }
 
-export async function get_user_permissions(unum: string, action_permissions: DetailedActionPermissions): Promise<UserPermissionsResult> {
-	const result = new UserPermissionsResult(ExitCodes.Err, PrimitivePermissionOptions.Denied);
+export async function get_user_permissions(unum: string, action_permissions: DetailedPermissionValues): Promise<UserPermissionsResult> {
+	const result = new UserPermissionsResult(ExitCodes.Err, PrimitivePermissionValues.None);
 	result.unum = unum;
 
 	//get groups the user is in
@@ -152,11 +145,11 @@ export async function get_user_permissions(unum: string, action_permissions: Det
 
 		for (let condition of action_permissions.allow_conditions) {
 			//check if the group has sole permissions
-			result.value = PrimitivePermissionOptions.Full;
+			result.value = PrimitivePermissionValues.Full;
 			if (condition.length == 1 && condition[0] == group) return result; 
 
 			//check if the group has permission at all
-			result.value = PrimitivePermissionOptions.Partial;
+			result.value = PrimitivePermissionValues.Partial;
 			//get raw group names inside condition
 			const condition_groups = condition
 				.map(x => x.replace(/^(.*?)[\.%].*$/, "$1"));
@@ -165,6 +158,6 @@ export async function get_user_permissions(unum: string, action_permissions: Det
 	}
 
 	//user does not have permission
-	result.value = PrimitivePermissionOptions.Denied;
+	result.value = PrimitivePermissionValues.None;
 	return result;
 }
