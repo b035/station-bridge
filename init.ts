@@ -16,6 +16,7 @@ async function main() {
 
 	for (let [path, content] of [
 		["config/port", "8001"],
+		["config/wsaddr", "ws://localhost:8001"],
 
 		["config/redirects/unregistered", "entrance"],
 		["config/redirects/local", "dashboard"],
