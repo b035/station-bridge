@@ -27,7 +27,7 @@ export async function check(unum: string, cmd: string): Promise<PermissionCheckR
 	result.command = cmd;
 	
 	function log_result(permission: PermissionValues) {
-		log("ACTIVITY", `Checked permission for "${unum}" with "${cmd}": ${permission}.`);
+		log("ACTIVITY", `Bridge: checked permission for "${unum}" with "${cmd}": ${permission}.`);
 
 		result.value = permission;
 		return result;
@@ -51,12 +51,11 @@ export async function check(unum: string, cmd: string): Promise<PermissionCheckR
 			const user_permission_result = (await get_user_permissions(unum, action_permissions)).log_error();
 			if (user_permission_result.failed) return log_result(PrimitivePermissionValues.Denied);
 
-			//user can perform action
-			if (user_permission_result.value! == UserPermissionValues.Partial) {
-				return log_result(action_permissions);
+			switch (user_permission_result.value) {
+				case UserPermissionValues.Partial: return log_result(action_permissions);
+				case UserPermissionValues.Full: return log_result(PrimitivePermissionValues.Full);
+				default: return log_result(PrimitivePermissionValues.Denied);
 			}
-
-			return log_result(PrimitivePermissionValues.Denied);
 		}
 	}
 }
@@ -107,9 +106,10 @@ export async function get_action_permissions(cmd: string): Promise<ActionPermiss
 
 	//parse permission file
 	const allow_conditions = allow_section
-	.split("\n")
-	.map(x => x.split(" "));
-	const block_conditions = block_section.split("\n");
+		.split("\n")
+		.map(x => x.split(" "));
+	const block_conditions = block_section
+		.split("\n");
 
 	result.value = {
 		allow_conditions,

@@ -74,7 +74,7 @@ export type LogType = "ACTIVITY" | "ERROR" | "PANIC" | "OTHER" | "STATUS";
 const LOG_DIR = "logs/current";
 
 export async function log(type: LogType, msg: string) {
-	msg = `TYPE ${type}\nPID ${process.pid}\n${msg}`;
+	msg = `TYPE ${type}\nPID ${process.pid}\n${msg}\n\n`;
 	const timestamp = new Date().toISOString();
 	const filename = `log-${timestamp}`;
 

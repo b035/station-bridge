@@ -5,6 +5,16 @@ import { ExitCodes, log, Registry, Result, Shell } from "@the-stations-project/s
 import { BRIDGE_DIR } from "./index.js";
 import { check, PrimitivePermissionValues } from "./permissions.js";
 
+export default function main(args: string[]) {
+	//get subcommand
+	const subcommand = args.splice(0, 1)[0];
+
+	switch (subcommand) {
+		case "create": return create(args[0], args[1]);
+		default: return ExitCodes.ErrNoCommand;
+	}
+}
+
 export enum ActionStatuses {
 	Rejected = 0,
 	Pending = 1,
@@ -30,6 +40,8 @@ export async function create(unum: string, cmd: string): Promise<ActionResult> {
 	const action = new Action();
 	const result = new ActionResult(ExitCodes.Err, action);
 
+	log("ACTIVITY", `Bridge: trying to create action "${cmd}" (${action.id}) for ${unum}".`);
+
 	//get permissions
 	const permissions_result = (await check(unum, cmd)).log_error();
 	if (permissions_result.failed) return result;
@@ -43,12 +55,15 @@ export async function create(unum: string, cmd: string): Promise<ActionResult> {
 		case PrimitivePermissionValues.Denied:
 		case PrimitivePermissionValues.Full: {
 			if (permissions == PrimitivePermissionValues.Full) action.status = ActionStatuses.Granted;
+			log("STATUS", `Bridge: skipping vote due to action status "${action.status}".`);
 			return result;
 		}
 	}
 
 	//get path
 	let action_path = Registry.join_paths(BRIDGE_DIR, "actions", action.id);
+
+	log("ACTIVITY", `Bridge: creating action directory...`);
 
 	//create action directory
 	(await Registry.mkdir(action_path)).log_error();
@@ -70,5 +85,8 @@ export async function create(unum: string, cmd: string): Promise<ActionResult> {
 	}
 
 	action.status = ActionStatuses.Pending;
+
+	log("STATUS", `Bridge: action is pending.`);
+
 	return result;
 }
