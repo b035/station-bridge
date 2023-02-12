@@ -6,7 +6,7 @@ const PERM_DIR = Registry.join_paths(BRIDGE_DIR, "permissions");
 
 export interface DetailedPermissionValues {
 	allow_conditions: string[][];
-	block_conditions: string[][];
+	block_conditions: string[];
 }
 export enum PrimitivePermissionValues {
 	Denied = 0,
@@ -66,6 +66,7 @@ export class ActionPermissionsResult extends Result<ExitCodes, DetailedPermissio
 	panic_message = () => `Bridge: failed to check permissions for command "${this.command}".`
 }
 
+//checks who can perform the action
 export async function get_action_permissions(cmd: string): Promise<ActionPermissionsResult> {
 	const result = new ActionPermissionsResult(ExitCodes.Err, PrimitivePermissionValues.Denied);
 	result.command = cmd;
@@ -130,6 +131,7 @@ export class UserPermissionsResult extends Result<ExitCodes, UserPermissionValue
 	panic_message = () => `Bridge: failed to check user permissions for user "${this.unum}".`;	
 }
 
+//checks if the user can perform the action
 export async function get_user_permissions(unum: string, action_permissions: DetailedPermissionValues): Promise<UserPermissionsResult> {
 	const result = new UserPermissionsResult(ExitCodes.Err, UserPermissionValues.Denied);
 	result.unum = unum;
@@ -145,6 +147,9 @@ export async function get_user_permissions(unum: string, action_permissions: Det
 
 	for (let group of user_groups) {
 		for (let condition of action_permissions.allow_conditions) {
+			//check if group is blacklisted
+			if (action_permissions.block_conditions.indexOf(group) != -1) return result;
+
 			//check if the group has sole permissions
 			result.value = UserPermissionValues.Full;
 			if (condition.length == 1 && condition[0] == group) return result; 
