@@ -2,6 +2,8 @@
 
 import { ExitCodes, start_service } from "@the-stations-project/sdk";
 
+import { create } from "./actions.js";
+
 export const BRIDGE_DIR = "bridge";
 export const USER_DIR = "users";
 
