@@ -6,7 +6,7 @@ const PERM_DIR = Registry.join_paths(BRIDGE_DIR, "permissions");
 
 export interface DetailedPermissionValues {
 	allow_conditions: string[][];
-	block_conditions: string[];
+	block_conditions: string[][];
 }
 export enum PrimitivePermissionValues {
 	Denied = 0,
@@ -144,9 +144,6 @@ export async function get_user_permissions(unum: string, action_permissions: Det
 	result.code = ExitCodes.Ok;
 
 	for (let group of user_groups) {
-		//check the group is blacklisted
-		if (action_permissions.block_conditions.indexOf(group) != -1) return result;
-
 		for (let condition of action_permissions.allow_conditions) {
 			//check if the group has sole permissions
 			result.value = UserPermissionValues.Full;
