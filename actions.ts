@@ -23,10 +23,15 @@ export enum ActionStatuses {
 export class Action {
 	status: ActionStatuses;
 	readonly id: string;
+	response: string | undefined; //stdout in case it was granted immediately
 
 	constructor() {
 		this.status = ActionStatuses.Rejected;
 		this.id = Crypto.randomUUID();
+	}
+
+	to_string() {
+		return `${this.status}:${this.response ?? this.id}`;
 	}
 }
 export class ActionResult extends Result<ExitCodes, Action> {
