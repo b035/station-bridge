@@ -77,7 +77,6 @@ export async function create(unum: string, cmd: string): Promise<ActionResult> {
 	(await Registry.mkdir(action_path)).log_error();
 	for (let subdir of [
 		"approvals",
-		"disapprovals",
 		"conditions",
 	]) {
 		(await Registry.mkdir(Registry.join_paths(action_path, subdir))).log_error();
@@ -87,7 +86,7 @@ export async function create(unum: string, cmd: string): Promise<ActionResult> {
 		["cmd", cmd],
 
 		["conditions/approval", permissions.allow_conditions.join("\n")],
-		["conditions/disapproval", permissions.block_conditions.join("\n")],
+		["conditions/blacklist", permissions.block_conditions.join("\n")],
 	]) {
 		(await Registry.write(Registry.join_paths(action_path, filename), content)).log_error();
 	}

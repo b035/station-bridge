@@ -108,7 +108,7 @@ export async function get_action_permissions(cmd: string): Promise<ActionPermiss
 	//parse permission file
 	const allow_conditions = allow_section
 		.split("\n")
-		.map(x => x.split(" "));
+		.map(x => x.split(","));
 	const block_conditions = block_section
 		.split("\n");
 
