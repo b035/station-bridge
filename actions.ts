@@ -5,12 +5,12 @@ import { ExitCodes, log, Registry, Result, Shell } from "@the-stations-project/s
 import { BRIDGE_DIR } from "./index.js";
 import { check, PrimitivePermissionValues } from "./permissions.js";
 
-export default function main(args: string[]) {
+export default async function main(args: string[]) {
 	//get subcommand
 	const subcommand = args.splice(0, 1)[0];
 
 	switch (subcommand) {
-		case "create": return create(args[0], args[1]);
+		case "create": return (await create(args[0], args[1])).value?.to_string();
 		default: return ExitCodes.ErrNoCommand;
 	}
 }
@@ -59,7 +59,10 @@ export async function create(unum: string, cmd: string): Promise<ActionResult> {
 		//return if no vote needed
 		case PrimitivePermissionValues.Denied:
 		case PrimitivePermissionValues.Full: {
-			if (permissions == PrimitivePermissionValues.Full) action.status = ActionStatuses.Granted;
+			if (permissions == PrimitivePermissionValues.Full) {
+				action.status = ActionStatuses.Granted;
+				action.response = (await execute(cmd));
+			}
 			log("STATUS", `Bridge: skipping vote due to action status "${action.status}".`);
 			return result;
 		}
@@ -94,4 +97,17 @@ export async function create(unum: string, cmd: string): Promise<ActionResult> {
 	log("STATUS", `Bridge: action is pending.`);
 
 	return result;
+}
+
+function execute(cmd: string): Promise<string> {
+	return new Promise(async (res) => {
+		const shell_result = (await Shell.exec(cmd)).log_error();
+		if (shell_result.failed) return "error";
+
+		let output = "";
+		const cp = shell_result.value!;
+		cp.stdout?.on("data", (data) => output += data.toString());
+
+		cp.on("exit", () => res(output));
+	});
 }
