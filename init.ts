@@ -3,13 +3,14 @@
 import { Registry } from "@the-stations-project/sdk";
 
 async function main() {
-	Registry.write("services/bridge", "npx bridge");
+	(await Registry.write("services/bridge", "npx bridge")).or_panic();
 
 	for (let path of [
 		"config/redirects",
 		"groups/by-user",
 		"permissions",
 		"actions",
+		"frontend",
 	]) {
 		(await Registry.mkdir(get_full_path(path))).or_panic();
 	}

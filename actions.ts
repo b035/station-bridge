@@ -34,16 +34,16 @@ export class Action {
 		return `${this.status}:${this.response ?? this.id}`;
 	}
 }
-export class ActionResult extends Result<ExitCodes, Action> {
+export class ActionCreationResult extends Result<ExitCodes, Action> {
 	unum: string = "";
 	cmd: string = "";
 
 	panic_message = () => `Actions: failed to create action for "${this.unum}" with "${this.cmd}".`;
 }
 
-export async function create(unum: string, cmd: string): Promise<ActionResult> {
+export async function create(unum: string, cmd: string): Promise<ActionCreationResult> {
 	const action = new Action();
-	const result = new ActionResult(ExitCodes.Err, action);
+	const result = new ActionCreationResult(ExitCodes.Err, action);
 
 	log("ACTIVITY", `Bridge: trying to create action "${cmd}" (${action.id}) for ${unum}".`);
 
@@ -110,3 +110,5 @@ function execute(cmd: string): Promise<string> {
 		cp.on("exit", () => res(output));
 	});
 }
+
+async function stat(action_id: string): Promise<ActionStatResult> {}
