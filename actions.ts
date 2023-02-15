@@ -5,13 +5,13 @@ import { ExitCodes, log, Registry, Result, Shell } from "@the-stations-project/s
 import { BRIDGE_DIR } from "./index.js";
 import { check, PrimitivePermissionValues } from "./permissions.js";
 
-export default async function main(args: string[]) {
+export default async function main(args: string[]): Promise<Result<ExitCodes, any>> {
 	//get subcommand
 	const subcommand = args.splice(0, 1)[0];
 
 	switch (subcommand) {
-		case "create": return (await create(args[0], args[1])).value?.to_string();
-		default: return ExitCodes.ErrNoCommand;
+		case "create": return (await create(args[0], args[1]));
+		default: return new Result(ExitCodes.ErrNoCommand, undefined);
 	}
 }
 
@@ -110,5 +110,3 @@ function execute(cmd: string): Promise<string> {
 		cp.on("exit", () => res(output));
 	});
 }
-
-async function stat(action_id: string): Promise<ActionStatResult> {}

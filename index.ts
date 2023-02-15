@@ -3,15 +3,15 @@
 export const BRIDGE_DIR = "bridge";
 export const USER_DIR = "users";
 
-import { ExitCodes, start_service } from "@the-stations-project/sdk";
+import { ExitCodes, Result, start_service } from "@the-stations-project/sdk";
 
 import actions from "./actions.js";
 
-async function main(subcommand: string, args: string[]) {
+async function main(subcommand: string, args: string[]): Promise<Result<any, any>> {
 	switch (subcommand) {
 		case "actions": return actions(args);
 		default: throw ExitCodes.ErrNoCommand;
 	}
 }
 
-start_service(main).then((result: any) => console.log(result));
+start_service(main, (result) => console.log(result.to_string()));
