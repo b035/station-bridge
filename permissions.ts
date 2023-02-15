@@ -2,7 +2,7 @@ import { log, Registry, Result, ExitCodes } from "@the-stations-project/sdk";
 
 import { BRIDGE_DIR } from "./index.js";
 
-const PERM_DIR = Registry.join_paths(BRIDGE_DIR, "permissions");
+export const PERM_DIR = Registry.join_paths(BRIDGE_DIR, "permissions");
 
 export interface DetailedPermissionValues {
 	allow_conditions: string[][];
@@ -18,20 +18,14 @@ export class PermissionCheckResult extends Result<ExitCodes, PermissionValues> {
 	unum: string = "";
 	command: string = "";
 
-	panic_message = () => `Bridge: failed to check permissions for user "${this.unum}" with command "${this.command}"`;
+	panic_message = () => `Bridge: failed to check_permissions permissions for user "${this.unum}" with command "${this.command}"`;
 }
 
-export async function check(unum: string, cmd: string): Promise<PermissionCheckResult> {
+export async function check_permissions(unum: string, cmd: string): Promise<PermissionCheckResult> {
 	const result = new PermissionCheckResult(ExitCodes.Err, PrimitivePermissionValues.Denied);
 	result.unum = unum;
 	result.command = cmd;
-	
-	function log_result(permission: PermissionValues) {
-		log("ACTIVITY", `Bridge: checked permission for "${unum}" with "${cmd}": ${permission}.`);
-
-		result.value = permission;
-		return result;
-	}
+	result.log_message = () => `Bridge: checked permisison for "${result.unum}" with "${result.command}": ${result.value}.`;
 
 	const action_permissions_result = (await get_action_permissions(cmd)).log_error();
 	if (action_permissions_result.failed) return result;
@@ -42,19 +36,19 @@ export async function check(unum: string, cmd: string): Promise<PermissionCheckR
 
 	switch (action_permissions) {
 		case PrimitivePermissionValues.Denied: {
-			return log_result(PrimitivePermissionValues.Denied);
+			return result.finalize(PrimitivePermissionValues.Denied);
 		}
 		case PrimitivePermissionValues.Full: { //everyone can perform this action
-			return log_result(PrimitivePermissionValues.Full);
+			return result.finalize(PrimitivePermissionValues.Full);
 		}
-		default: { //check if user can perform action
+		default: { //check_permissions if user can perform action
 			const user_permission_result = (await get_user_permissions(unum, action_permissions)).log_error();
-			if (user_permission_result.failed) return log_result(PrimitivePermissionValues.Denied);
+			if (user_permission_result.failed) return result.finalize(PrimitivePermissionValues.Denied);
 
 			switch (user_permission_result.value) {
-				case UserPermissionValues.Partial: return log_result(action_permissions);
-				case UserPermissionValues.Full: return log_result(PrimitivePermissionValues.Full);
-				default: return log_result(PrimitivePermissionValues.Denied);
+				case UserPermissionValues.Partial: return result.finalize(action_permissions);
+				case UserPermissionValues.Full: return result.finalize(PrimitivePermissionValues.Full);
+				default: return result.finalize(PrimitivePermissionValues.Denied);
 			}
 		}
 	}
@@ -63,10 +57,10 @@ export async function check(unum: string, cmd: string): Promise<PermissionCheckR
 // Action permissions
 export class ActionPermissionsResult extends Result<ExitCodes, DetailedPermissionValues|PrimitivePermissionValues.Full|PrimitivePermissionValues.Denied> {
 	command: string = "";
-	panic_message = () => `Bridge: failed to check permissions for command "${this.command}".`
+	panic_message = () => `Bridge: failed to check_permissions permissions for command "${this.command}".`
 }
 
-//checks who can perform the action
+//check_permissionss who can perform the action
 export async function get_action_permissions(cmd: string): Promise<ActionPermissionsResult> {
 	const result = new ActionPermissionsResult(ExitCodes.Err, PrimitivePermissionValues.Denied);
 	result.command = cmd;
@@ -101,8 +95,7 @@ export async function get_action_permissions(cmd: string): Promise<ActionPermiss
 	//if everyone has permission
 	const [ allow_section, block_section ] = read_result.value!.split("\n---");
 	if (allow_section == "all") {
-		result.value = PrimitivePermissionValues.Full;
-		return result;
+		return result.finalize(PrimitivePermissionValues.Full);
 	}
 
 	//parse permission file
@@ -112,11 +105,10 @@ export async function get_action_permissions(cmd: string): Promise<ActionPermiss
 	const block_conditions = block_section
 		.split("\n");
 
-	result.value = {
+	return result.finalize({
 		allow_conditions,
 		block_conditions,
-	}
-	return result;
+	});
 }
 
 // User permissions
@@ -128,10 +120,10 @@ export enum UserPermissionValues {
 export class UserPermissionsResult extends Result<ExitCodes, UserPermissionValues> {
 	unum:  string = "";
 
-	panic_message = () => `Bridge: failed to check user permissions for user "${this.unum}".`;	
+	panic_message = () => `Bridge: failed to check_permissions user permissions for user "${this.unum}".`;	
 }
 
-//checks if the user can perform the action
+//check_permissionss if the user can perform the action
 export async function get_user_permissions(unum: string, action_permissions: DetailedPermissionValues): Promise<UserPermissionsResult> {
 	const result = new UserPermissionsResult(ExitCodes.Err, UserPermissionValues.Denied);
 	result.unum = unum;
@@ -147,14 +139,14 @@ export async function get_user_permissions(unum: string, action_permissions: Det
 
 	for (let group of user_groups) {
 		for (let condition of action_permissions.allow_conditions) {
-			//check if group is blacklisted
+			//check_permissions if group is blacklisted
 			if (action_permissions.block_conditions.indexOf(group) != -1) return result;
 
-			//check if the group has sole permissions
+			//check_permissions if the group has sole permissions
 			result.value = UserPermissionValues.Full;
 			if (condition.length == 1 && condition[0] == group) return result; 
 
-			//check if the group has permission at all
+			//check_permissions if the group has permission at all
 			result.value = UserPermissionValues.Partial;
 			//get raw group names inside condition
 			const condition_groups = condition
@@ -164,6 +156,5 @@ export async function get_user_permissions(unum: string, action_permissions: Det
 	}
 
 	//user does not have permission
-	result.value = UserPermissionValues.Denied;
-	return result;
+	return result.finalize(UserPermissionValues.Denied);
 }
