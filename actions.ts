@@ -14,6 +14,7 @@ export default async function main(args: string[]): Promise<Result<any, any>> {
 	switch (subcommand) {
 		case "create": return (await create(args[0], args[1]));
 		case "approve": return (await approve(args[0], args[1]));
+		case "unapprove": return (await unapprove(args[0], args[1]));
 		default: return new Result(ExitCodes.ErrNoCommand, undefined);
 	}
 }
@@ -148,6 +149,27 @@ export async function approve(id: string, unum: string): Promise<ActionChangeRes
 	const approval_path = Registry.join_paths(action_path, "approvals", unum);
 	const write_result = (await Registry.write(approval_path, "")).log_error();
 	if (write_result.failed) result.code = ActionChangeExitCodes.ErrUnknown;
+	log("ACTIVITY", `Bridge: "${unum}" approved action "${id}".`);
+
+	return result;
+}
+export async function unapprove(id: string, unum: string): Promise<ActionChangeResult> {
+	const result = new ActionChangeResult(ActionChangeExitCodes.ErrUnknown, ActionChangeResultValues.Denied);
+	result.change_type = "unapprove";
+	result.action_id = id;
+	result.unum = unum;
+
+	const path = Registry.join_paths(ACTION_DIR, id, "approvals", unum);
+
+	//delete file
+	(await Registry.delete(path))
+		.ok(() => {
+			result.finalize(ActionChangeResultValues.Permitted, ActionChangeExitCodes.Ok);
+			log("ACTIVITY", `Bridge: "${unum}" unapproved action "${id}".`);
+		})
+		.err(() => {
+			log("ERROR", `Bridge: "${unum}" could not unapprove action "${id}".`);
+		});
 
 	return result;
 }

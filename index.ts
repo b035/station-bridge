@@ -9,7 +9,7 @@ import actions from "./actions.js";
 
 async function main(subcommand: string, args: string[]): Promise<Result<any, any>> {
 	switch (subcommand) {
-		case "actions": return actions(args);
+		case "actions": return await actions(args);
 		default: throw ExitCodes.ErrNoCommand;
 	}
 }
