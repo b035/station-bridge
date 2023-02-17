@@ -15,40 +15,47 @@ export enum PrimitivePermissionValues {
 export type PermissionValues = PrimitivePermissionValues | DetailedPermissionValues;
 
 export class PermissionCheckResult extends Result<ExitCodes, PermissionValues> {
-	unum: string = "";
-	command: string = "";
+	unum: string;
+	command: string;
 
 	panic_message = () => `Bridge: failed to check_permissions permissions for user "${this.unum}" with command "${this.command}"`;
+	log_message = () => `Bridge: checked permisison for "${this.unum}" with "${this.command}": ${this.value}.`;
+
+	constructor(unum: string, command: string) {
+		super(ExitCodes.Err, PrimitivePermissionValues.Denied);
+
+		this.unum = unum;
+		this.command = command;
+	}
 }
 
 export async function check_permissions(unum: string, cmd: string): Promise<PermissionCheckResult> {
-	const result = new PermissionCheckResult(ExitCodes.Err, PrimitivePermissionValues.Denied);
-	result.unum = unum;
-	result.command = cmd;
-	result.log_message = () => `Bridge: checked permisison for "${result.unum}" with "${result.command}": ${result.value}.`;
+	const result: PermissionCheckResult = new PermissionCheckResult(
+		unum,
+		cmd,
+	);
 
 	const action_permissions_result = (await get_action_permissions(cmd)).log_error();
-	if (action_permissions_result.failed) return result;
+	if (action_permissions_result.failed) return result.revert();
 	const action_permissions = action_permissions_result.value!;
 
-	//no errors from here
 	result.code = ExitCodes.Ok;
 
 	switch (action_permissions) {
 		case PrimitivePermissionValues.Denied: {
-			return result.finalize(PrimitivePermissionValues.Denied);
+			return result.finalize_with_value(PrimitivePermissionValues.Denied);
 		}
 		case PrimitivePermissionValues.Full: { //everyone can perform this action
-			return result.finalize(PrimitivePermissionValues.Full);
+			return result.finalize_with_value(PrimitivePermissionValues.Full);
 		}
 		default: { //check_permissions if user can perform action
 			const user_permission_result = (await get_user_permissions(unum, action_permissions)).log_error();
-			if (user_permission_result.failed) return result.finalize(PrimitivePermissionValues.Denied);
+			if (user_permission_result.failed) return result.revert();
 
 			switch (user_permission_result.value) {
-				case UserPermissionValues.Partial: return result.finalize(action_permissions);
-				case UserPermissionValues.Full: return result.finalize(PrimitivePermissionValues.Full);
-				default: return result.finalize(PrimitivePermissionValues.Denied);
+				case UserPermissionValues.Partial: return result.finalize_with_value(action_permissions);
+				case UserPermissionValues.Full: return result.finalize_with_value(PrimitivePermissionValues.Full);
+				default: return result.finalize_with_value(PrimitivePermissionValues.Denied);
 			}
 		}
 	}
@@ -56,20 +63,25 @@ export async function check_permissions(unum: string, cmd: string): Promise<Perm
 
 // Action permissions
 export class ActionPermissionsResult extends Result<ExitCodes, DetailedPermissionValues|PrimitivePermissionValues.Full|PrimitivePermissionValues.Denied> {
-	command: string = "";
-	panic_message = () => `Bridge: failed to check_permissions permissions for command "${this.command}".`
+	cmd: string;
+	panic_message = () => `Bridge: failed to check_permissions permissions for cmd "${this.cmd}".`
+
+	constructor(cmd: string) {
+		super(ExitCodes.Err, PrimitivePermissionValues.Denied);
+
+		this.cmd = cmd;
+	}
 }
 
 //check_permissionss who can perform the action
 export async function get_action_permissions(cmd: string): Promise<ActionPermissionsResult> {
-	const result = new ActionPermissionsResult(ExitCodes.Err, PrimitivePermissionValues.Denied);
-	result.command = cmd;
+	const result = new ActionPermissionsResult(cmd);
 
 	//get all permission files
 	const ls_result = (await Registry.ls(PERM_DIR)).log_error();
-	if (ls_result.failed) return result;
+	if (ls_result.failed) return result.revert();
 
-	//process command to get filename
+	//process cmd to get filename
 	const processed_cmd = cmd.replace(/ /g, "__");
 
 	const matching_file = ls_result.value!
@@ -80,23 +92,18 @@ export async function get_action_permissions(cmd: string): Promise<ActionPermiss
 
 	//deny if no matching file exists
 	if (!matching_file) {
-		log("ERROR", `Bridge: no permission file for command "${cmd}" was found.`);
-		return result;
+		log("ERROR", `Bridge: no permission file for cmd "${cmd}" was found.`);
+		return result.revert();
 	};
 
 	//read permission file
 	const file_path = Registry.join_paths(PERM_DIR, matching_file);
 	const read_result = (await Registry.read(file_path)).log_error();
-	if (read_result.failed) return result;
-
-	//no errors from here
-	result.code = ExitCodes.Ok;
+	if (read_result.failed) return result.revert();
 
 	//if everyone has permission
 	const [ allow_section, block_section ] = read_result.value!.split("\n---");
-	if (allow_section == "all") {
-		return result.finalize(PrimitivePermissionValues.Full);
-	}
+	if (allow_section == "all") return result.finalize(ExitCodes.Ok, PrimitivePermissionValues.Full);
 
 	//parse permission file
 	const allow_conditions = allow_section
@@ -105,7 +112,7 @@ export async function get_action_permissions(cmd: string): Promise<ActionPermiss
 	const block_conditions = block_section
 		.split("\n");
 
-	return result.finalize({
+	return result.finalize(ExitCodes.Ok, {
 		allow_conditions,
 		block_conditions,
 	});
@@ -118,20 +125,25 @@ export enum UserPermissionValues {
 	Full = 2,
 }
 export class UserPermissionsResult extends Result<ExitCodes, UserPermissionValues> {
-	unum:  string = "";
+	unum:  string;
 
 	panic_message = () => `Bridge: failed to check_permissions user permissions for user "${this.unum}".`;	
+
+	constructor(unum: string) {
+		super(ExitCodes.Err, UserPermissionValues.Denied);
+
+		this.unum = unum;
+	}
 }
 
 //check_permissionss if the user can perform the action
 export async function get_user_permissions(unum: string, action_permissions: DetailedPermissionValues): Promise<UserPermissionsResult> {
-	const result = new UserPermissionsResult(ExitCodes.Err, UserPermissionValues.Denied);
-	result.unum = unum;
+	const result = new UserPermissionsResult(unum);
 
 	//get groups the user is in
 	const group_path = Registry.join_paths(BRIDGE_DIR, "groups/by-user", unum);
 	const user_group_result = (await Registry.ls(group_path)).log_error();
-	if (user_group_result.failed) return result;
+	if (user_group_result.failed) return result.revert();
 	const user_groups = user_group_result.value!;
 
 	//no errors from here
@@ -140,21 +152,19 @@ export async function get_user_permissions(unum: string, action_permissions: Det
 	for (let group of user_groups) {
 		for (let condition of action_permissions.allow_conditions) {
 			//check_permissions if group is blacklisted
-			if (action_permissions.block_conditions.indexOf(group) != -1) return result;
+			if (action_permissions.block_conditions.indexOf(group) != -1) return result.finalize_with_value(UserPermissionValues.Denied);
 
 			//check_permissions if the group has sole permissions
-			result.value = UserPermissionValues.Full;
-			if (condition.length == 1 && condition[0] == group) return result; 
+			if (condition.length == 1 && condition[0] == group) return result.finalize_with_value(UserPermissionValues.Full); 
 
 			//check_permissions if the group has permission at all
-			result.value = UserPermissionValues.Partial;
 			//get raw group names inside condition
 			const condition_groups = condition
 				.map(x => x.replace(/^(.*?)[\.%].*$/, "$1"));
-			if (condition_groups.indexOf(group) != -1) return result;
+			if (condition_groups.indexOf(group) != -1) return result.finalize_with_value(UserPermissionValues.Partial);
 		}
 	}
 
 	//user does not have permission
-	return result.finalize(UserPermissionValues.Denied);
+	return result.finalize_with_value(UserPermissionValues.Denied);
 }
